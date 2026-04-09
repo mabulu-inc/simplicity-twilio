@@ -1,6 +1,6 @@
 {
   "name": "@smplcty/twilio",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Tiny TypeScript wrapper around the Twilio Verify v2 API. Send and check OTP codes via SMS or email with zero global state and no env-var dependencies.",
   "license": "MIT",
   "type": "module",
