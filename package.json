@@ -48,7 +48,8 @@
     "lint": "eslint src tests",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "release": "git push origin main --follow-tags && gh release create v$(node -p \"require('./package.json').version\") --generate-notes"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
