@@ -49,7 +49,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "release": "git push origin main --follow-tags && gh release create v$(node -p \"require('./package.json').version\") --generate-notes"
+    "release": "release-it"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -57,6 +57,7 @@
     "eslint": "^10.2.0",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.1",
+    "release-it": "^19.2.4",
     "vitest": "^4.1.4"
   }
 }
