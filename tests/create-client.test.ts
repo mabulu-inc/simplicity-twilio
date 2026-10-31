@@ -82,7 +82,7 @@ describe('sendVerificationCode', () => {
     );
     expect(calls[0]?.init.method).toBe('POST');
 
-    const body = (calls[0]?.init.body as URLSearchParams).toString();
+    const body = String(calls[0]?.init.body);
     expect(body).toContain('Channel=sms');
     expect(body).toContain(`To=${encodeURIComponent('+15558675309')}`);
   });
@@ -157,7 +157,7 @@ describe('verifyVerificationCode', () => {
       'https://verify.twilio.com/v2/Services/VA00000000000000000000000000000000/VerificationCheck',
     );
 
-    const body = (calls[0]?.init.body as URLSearchParams).toString();
+    const body = String(calls[0]?.init.body);
     expect(body).toContain('Code=123456');
     expect(body).toContain(`To=${encodeURIComponent('+15558675309')}`);
   });
