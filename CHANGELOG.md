@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-21
+
 ### Fixed
 
 - **A rate limit from Twilio no longer counts as Twilio being down.** In 0.2.0, a
@@ -49,7 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - First release: a small client for sending and checking Twilio Verify codes by
   SMS or email, with no global state and no environment variables.
 
-[Unreleased]: https://github.com/mabulu-inc/simplicity-twilio/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/mabulu-inc/simplicity-twilio/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/mabulu-inc/simplicity-twilio/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/mabulu-inc/simplicity-twilio/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/mabulu-inc/simplicity-twilio/compare/bcdd716...v0.1.1
 [0.1.0]: https://github.com/mabulu-inc/simplicity-twilio/commit/bcdd716
