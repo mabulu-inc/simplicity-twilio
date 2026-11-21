@@ -339,8 +339,6 @@ describe('telling an outage from a refusal of one recipient', () => {
   it.each([
     ['bad credentials', { status: 401, json: { code: 20003 } }],
     ['a missing Verify Service', { status: 404, json: { code: 20404 } }],
-    ['an account-wide rate limit', { status: 429, json: { code: 20429 } }],
-    ['a 429 with no body', { status: 429, text: '' }],
     ['a Twilio 500', { status: 500, text: 'oops' }],
     ['a Twilio 503', { status: 503, text: '' }],
   ])('a send throws TwilioUnavailableError for %s', async (_name, response) => {
@@ -354,6 +352,9 @@ describe('telling an outage from a refusal of one recipient', () => {
     ['a landline', { status: 400, json: { code: 60205 } }],
     ['a blocked destination country', { status: 403, json: { code: 60605 } }],
     ['too many sends to this recipient', { status: 429, json: { code: 60203 } }],
+    ['too many concurrent requests for this number', { status: 429, json: { code: 60212 } }],
+    ['a 20429, which repeated starts to one number can also cause', { status: 429, json: { code: 20429 } }],
+    ['a 429 with no body', { status: 429, text: '' }],
   ])('a send returns false for %s', async (_name, response) => {
     expect(await send(response)).toBe(false);
   });
@@ -381,7 +382,6 @@ describe('telling an outage from a refusal of one recipient', () => {
 
   it.each([
     ['bad credentials', { status: 401, json: { code: 20003 } }],
-    ['an account-wide rate limit', { status: 429, json: { code: 20429 } }],
     ['a Twilio 500', { status: 500, text: '' }],
   ])('a check throws TwilioUnavailableError for %s', async (_name, response) => {
     expect(await check(response)).toBeInstanceOf(TwilioUnavailableError);
@@ -390,6 +390,7 @@ describe('telling an outage from a refusal of one recipient', () => {
   it.each([
     ['an expired or used challenge', { status: 404, json: { code: 20404 } }],
     ['too many checks for this challenge', { status: 429, json: { code: 60202 } }],
+    ['any other 429', { status: 429, json: { code: 20429 } }],
     ['a bad request', { status: 400, json: { code: 60200 } }],
   ])('a check returns false for %s', async (_name, response) => {
     expect(await check(response)).toBe(false);

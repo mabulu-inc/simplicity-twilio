@@ -9,10 +9,6 @@ import type {
 
 const DEFAULT_BASE_URL = 'https://verify.twilio.com/v2';
 
-/** Twilio's "too many attempts for this one recipient" codes: a 429 that is about the number, not the account. */
-const MAX_SEND_ATTEMPTS = 60203;
-const MAX_CHECK_ATTEMPTS = 60202;
-
 /**
  * Reads Twilio's numeric error code from a failed response and nothing else.
  * The body's `message` can quote the recipient, so it is never returned.
@@ -27,16 +23,15 @@ async function readTwilioCode(response: Response): Promise<number | undefined> {
 }
 
 /**
- * Whether a failed response means Twilio can't serve anyone right now, as
- * opposed to refusing this one recipient or challenge. Bad credentials (401),
- * Twilio errors (5xx) and account-wide rate limits (429 other than the
- * per-recipient code) are outages. A 403 is not: Twilio uses it for a
- * blocked destination country (60605).
+ * Whether a failed response means Twilio can't serve anyone right now. Only
+ * bad credentials (401) and Twilio errors (5xx) qualify. Every 429 is treated
+ * as about the recipient: Twilio returns 429 for one number's limits (60202,
+ * 60203, 60212), and even its account-wide 20429 can come from repeated starts
+ * to one number, so a caller could otherwise turn one number into an outage.
+ * A 403 is not an outage either: Twilio uses it for a blocked country (60605).
  */
-function isOutage(status: number, twilioCode: number | undefined, perRecipientLimit: number): boolean {
-  if (status === 401 || status >= 500) return true;
-  if (status === 429) return twilioCode !== perRecipientLimit;
-  return false;
+function isOutage(status: number): boolean {
+  return status === 401 || status >= 500;
 }
 
 /**
@@ -133,7 +128,7 @@ export function createTwilioVerifyClient(
       const twilioCode = await readTwilioCode(response);
       const { status } = response;
       // A 404 here means the Verify Service doesn't exist: no one can be sent a code.
-      if (status === 404 || isOutage(status, twilioCode, MAX_SEND_ATTEMPTS)) {
+      if (status === 404 || isOutage(status)) {
         log.error({ channel: input.channel, status, twilioCode }, 'verification code send failed (twilio unavailable)');
         throw new TwilioUnavailableError(`Twilio refused the send with HTTP ${status}`, { status, twilioCode });
       }
@@ -183,7 +178,7 @@ export function createTwilioVerifyClient(
       const { status } = response;
       // A 404 here is the normal answer for an expired or already-used
       // challenge, so unlike a send it isn't treated as an outage.
-      if (isOutage(status, twilioCode, MAX_CHECK_ATTEMPTS)) {
+      if (isOutage(status)) {
         log.error({ status, twilioCode }, 'verification check failed (twilio unavailable)');
         throw new TwilioUnavailableError(`Twilio refused the check with HTTP ${status}`, { status, twilioCode });
       }
