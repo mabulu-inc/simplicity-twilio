@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-21
+
 ### Changed
 
 - **Breaking: an outage at Twilio now throws instead of returning `false`.** Sending
@@ -35,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - First release: a small client for sending and checking Twilio Verify codes by
   SMS or email, with no global state and no environment variables.
 
-[unreleased]: https://github.com/mabulu-inc/simplicity-twilio/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/mabulu-inc/simplicity-twilio/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/mabulu-inc/simplicity-twilio/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/mabulu-inc/simplicity-twilio/compare/bcdd716...v0.1.1
 [0.1.0]: https://github.com/mabulu-inc/simplicity-twilio/commit/bcdd716
