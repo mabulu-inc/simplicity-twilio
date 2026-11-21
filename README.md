@@ -76,7 +76,7 @@ interface TwilioVerifyClient {
 }
 ```
 
-Both methods return `Promise<boolean>`. `false` means Twilio refused **this recipient or this challenge**, which is a normal outcome: an invalid number, a landline, a blocked destination country, too many attempts for that recipient, or a wrong, expired or already-used code.
+Both methods return `Promise<boolean>`. `false` means Twilio refused **this recipient or this challenge**, which is a normal outcome: an invalid number, a landline, a blocked destination country, any rate limit (429), or a wrong, expired or already-used code.
 
 They throw `TwilioUnavailableError` when Twilio **can't serve anyone right now**, so the caller can say "try again shortly" instead of "a code is on its way" or "that code is wrong":
 
@@ -85,12 +85,11 @@ They throw `TwilioUnavailableError` when Twilio **can't serve anyone right now**
 | Network failure (DNS, timeout, reset) | none; the original error is the `cause` |
 | Bad credentials | 401 |
 | Missing Verify Service (send only; on a check, 404 means the challenge expired or was used) | 404 |
-| Account-wide rate limit (any 429 except the per-recipient 60203 on a send and 60202 on a check) | 429 |
 | A Twilio error | 5xx |
 
 The error has `status` and `twilioCode` (Twilio's numeric error code, when it sent one) for logging. It never carries Twilio's error message, which can quote the recipient.
 
-A 403 is not an outage: Twilio uses it for a blocked destination country ([60605](https://www.twilio.com/docs/api/errors/60605)).
+A 403 is not an outage: Twilio uses it for a blocked destination country ([60605](https://www.twilio.com/docs/api/errors/60605)). Neither is any 429. Twilio returns 429 for one number's limits ([60203](https://www.twilio.com/docs/api/errors/60203), [60212](https://www.twilio.com/docs/api/errors/60212)), and its account-wide [20429](https://www.twilio.com/docs/api/errors/20429) can also come from repeated starts to one number. If a 429 counted as an outage, a caller could make one number look like Twilio being down.
 
 `InvalidInputError` is thrown for missing required fields.
 

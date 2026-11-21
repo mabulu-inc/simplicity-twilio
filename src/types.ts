@@ -68,12 +68,13 @@ export interface TwilioVerifyClient {
    * Send a verification code to a phone or email address. Returns
    * `true` if Twilio accepted the request (HTTP 2xx), and `false` when
    * Twilio refused this one recipient: an invalid number, a blocked
-   * destination, or too many attempts for that recipient.
+   * destination, or a rate limit (any 429).
    *
    * @throws {TwilioUnavailableError} When Twilio can't send to anyone right
-   *   now: a network failure, bad credentials, a missing Verify Service, an
-   *   account-wide rate limit, or a Twilio 5xx. Telling the person to try
-   *   again later is honest here; telling them a code is on its way is not.
+   *   now: a network failure, bad credentials, a missing Verify Service, or a
+   *   Twilio 5xx. A rate limit (429) is never one, since it can be about
+   *   one number. Telling the person to try again later is honest here;
+   *   telling them a code is on its way is not.
    * @throws {InvalidInputError} If `channel` or `to` is missing/empty.
    */
   sendVerificationCode(input: SendVerificationCodeInput): Promise<boolean>;
