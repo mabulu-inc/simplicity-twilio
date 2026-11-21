@@ -1,5 +1,5 @@
 // Errors
-export { TwilioError, InvalidInputError } from './errors.js';
+export { TwilioError, InvalidInputError, TwilioUnavailableError } from './errors.js';
 
 // Types
 export type {

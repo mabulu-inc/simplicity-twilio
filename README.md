@@ -25,7 +25,7 @@ Zero runtime dependencies. Requires Node 20+ (uses global `fetch`).
 ## Usage
 
 ```ts
-import { createTwilioVerifyClient } from '@smplcty/twilio';
+import { createTwilioVerifyClient, TwilioUnavailableError } from '@smplcty/twilio';
 
 const twilio = createTwilioVerifyClient({
   accountSid: process.env.TWILIO_ACCOUNT_SID!,
@@ -34,12 +34,14 @@ const twilio = createTwilioVerifyClient({
 });
 
 // Send a code
-const sent = await twilio.sendVerificationCode({
-  channel: 'sms',
-  to: '+15558675309',
-});
-if (!sent) {
-  // Twilio rejected the request — rate limit, bad number, blocked recipient, etc.
+try {
+  const sent = await twilio.sendVerificationCode({ channel: 'sms', to: '+15558675309' });
+  if (!sent) {
+    // Twilio refused this recipient: invalid number, blocked country, too many attempts, etc.
+  }
+} catch (err) {
+  if (!(err instanceof TwilioUnavailableError)) throw err;
+  // Twilio can't send to anyone right now. Tell the person to try again shortly.
 }
 
 // Later, check the code the user submits
@@ -74,9 +76,23 @@ interface TwilioVerifyClient {
 }
 ```
 
-Both methods return `Promise<boolean>` and **do not throw on Twilio rejection** — non-2xx responses, network errors, expired challenges, and rate limits all return `false`. The caller decides whether `false` means "retry" or "give up." This makes the most-common code path (`if (!ok) return 400`) trivial.
+Both methods return `Promise<boolean>`. `false` means Twilio refused **this recipient or this challenge**, which is a normal outcome: an invalid number, a landline, a blocked destination country, too many attempts for that recipient, or a wrong, expired or already-used code.
 
-The only thing that throws is `InvalidInputError` for missing required fields.
+They throw `TwilioUnavailableError` when Twilio **can't serve anyone right now**, so the caller can say "try again shortly" instead of "a code is on its way" or "that code is wrong":
+
+| Cause | HTTP status |
+| --- | --- |
+| Network failure (DNS, timeout, reset) | none; the original error is the `cause` |
+| Bad credentials | 401 |
+| Missing Verify Service (send only; on a check, 404 means the challenge expired or was used) | 404 |
+| Account-wide rate limit (any 429 except the per-recipient 60203 on a send and 60202 on a check) | 429 |
+| A Twilio error | 5xx |
+
+The error has `status` and `twilioCode` (Twilio's numeric error code, when it sent one) for logging. It never carries Twilio's error message, which can quote the recipient.
+
+A 403 is not an outage: Twilio uses it for a blocked destination country ([60605](https://www.twilio.com/docs/api/errors/60605)).
+
+`InvalidInputError` is thrown for missing required fields.
 
 ## Why no environment variables
 
@@ -133,13 +149,14 @@ This is strictly better than the env var approach: per-dev TOTP secrets, time-ro
 
 ## Logging
 
-The library never logs verification codes, recipient phone numbers, recipient email addresses, or Twilio response bodies. With LOG_LEVEL=debug it will only log structural events:
+The library never logs verification codes, recipient phone numbers, recipient email addresses, or Twilio response bodies. From a failed response it reads only Twilio's numeric error code. With LOG_LEVEL=debug it will only log structural events:
 
 - `'sending verification code'` with `{ channel }`
 - `'verification code sent'` with `{ channel, status }`
 - `'verifying verification code'` with `{}` (no fields)
 - `'verification check complete'` with `{ approved, status }`
-- Warnings on rejection with `{ status }` only
+- Warnings when Twilio refuses one recipient or challenge, with `{ status, twilioCode }`
+- Errors when Twilio is unavailable, with `{ status, twilioCode }` (no fields from the response for a network failure)
 
 The default logger is a no-op. To get the events, pass a logger that matches the pino-style `(data, msg)` shape (or pino itself):
 
