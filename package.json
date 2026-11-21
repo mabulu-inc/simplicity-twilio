@@ -52,6 +52,7 @@
     "release": "GITHUB_TOKEN=$(gh auth token) release-it --ci"
   },
   "devDependencies": {
+    "@release-it/keep-a-changelog": "^8.0.1",
     "@types/node": "^26.6.6",
     "oxlint": "^1.90.0",
     "release-it": "^21.1.2",

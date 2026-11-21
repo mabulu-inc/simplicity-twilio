@@ -22,7 +22,8 @@ export interface TwilioVerifyConfig {
   /** Optional structured logger. Defaults to a no-op. The library
    *  never logs the verification code, the Twilio JSON body, or any
    *  request/response that could leak PII — only structural events
-   *  with safe identifiers (channel, status code). */
+   *  with safe identifiers (channel, status code, Twilio's numeric
+   *  error code). */
   logger?: Logger;
 }
 
@@ -65,24 +66,26 @@ export interface VerifyVerificationCodeInput {
 export interface TwilioVerifyClient {
   /**
    * Send a verification code to a phone or email address. Returns
-   * `true` if Twilio accepted the request (HTTP 2xx), `false` otherwise.
+   * `true` if Twilio accepted the request (HTTP 2xx), and `false` when
+   * Twilio refused this one recipient: an invalid number, a blocked
+   * destination, or too many attempts for that recipient.
    *
-   * Does NOT throw on HTTP failures — Twilio returns 4xx for many
-   * common cases (rate-limited, recipient blocked, invalid number)
-   * that are not exceptional from the caller's perspective. The
-   * caller decides whether `false` means "retry" or "give up."
-   *
+   * @throws {TwilioUnavailableError} When Twilio can't send to anyone right
+   *   now: a network failure, bad credentials, a missing Verify Service, an
+   *   account-wide rate limit, or a Twilio 5xx. Telling the person to try
+   *   again later is honest here; telling them a code is on its way is not.
    * @throws {InvalidInputError} If `channel` or `to` is missing/empty.
    */
   sendVerificationCode(input: SendVerificationCodeInput): Promise<boolean>;
 
   /**
    * Verify a code against a previously-sent challenge. Returns `true`
-   * if Twilio reports the code as approved, `false` otherwise.
+   * if Twilio reports the code as approved, and `false` for a wrong code,
+   * an expired or already-used challenge, or too many attempts.
    *
-   * Does NOT throw on rejection or expiration — these are normal
-   * outcomes, not exceptions.
-   *
+   * @throws {TwilioUnavailableError} When Twilio can't check codes right
+   *   now (same causes as for a send), so a correct code isn't reported
+   *   as wrong.
    * @throws {InvalidInputError} If `to` or `code` is missing/empty.
    */
   verifyVerificationCode(input: VerifyVerificationCodeInput): Promise<boolean>;
@@ -95,7 +98,8 @@ export interface TwilioVerifyClient {
  *
  * The library never logs the verification code, the recipient's
  * phone/email, or any HTTP body content. Only structural events with
- * safe identifiers (channel, HTTP status code).
+ * safe identifiers (channel, HTTP status code, Twilio's numeric error
+ * code).
  */
 export interface Logger {
   debug(data: Record<string, unknown>, msg: string): void;

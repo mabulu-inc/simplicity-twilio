@@ -1,4 +1,4 @@
-import { InvalidInputError } from './errors.js';
+import { InvalidInputError, TwilioUnavailableError } from './errors.js';
 import { noopLogger } from './internal/noop-logger.js';
 import type {
   SendVerificationCodeInput,
@@ -8,6 +8,36 @@ import type {
 } from './types.js';
 
 const DEFAULT_BASE_URL = 'https://verify.twilio.com/v2';
+
+/** Twilio's "too many attempts for this one recipient" codes: a 429 that is about the number, not the account. */
+const MAX_SEND_ATTEMPTS = 60203;
+const MAX_CHECK_ATTEMPTS = 60202;
+
+/**
+ * Reads Twilio's numeric error code from a failed response and nothing else.
+ * The body's `message` can quote the recipient, so it is never returned.
+ */
+async function readTwilioCode(response: Response): Promise<number | undefined> {
+  try {
+    const body = JSON.parse(await response.text()) as { code?: unknown };
+    return typeof body?.code === 'number' ? body.code : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Whether a failed response means Twilio can't serve anyone right now, as
+ * opposed to refusing this one recipient or challenge. Bad credentials (401),
+ * Twilio errors (5xx) and account-wide rate limits (429 other than the
+ * per-recipient code) are outages. A 403 is not: Twilio uses it for a
+ * blocked destination country (60605).
+ */
+function isOutage(status: number, twilioCode: number | undefined, perRecipientLimit: number): boolean {
+  if (status === 401 || status >= 500) return true;
+  if (status === 429) return twilioCode !== perRecipientLimit;
+  return false;
+}
 
 /**
  * Create a Twilio Verify v2 client.
@@ -85,25 +115,29 @@ export function createTwilioVerifyClient(
 
     log.debug({ channel: input.channel }, 'sending verification code');
 
-    const response = await fetchImpl(`${serviceUrl}/Verifications`, {
-      method: 'POST',
-      headers,
-      body: params,
-    });
+    let response: Response;
+    try {
+      response = await fetchImpl(`${serviceUrl}/Verifications`, {
+        method: 'POST',
+        headers,
+        body: params,
+      });
+    } catch (error) {
+      log.error({ channel: input.channel }, 'verification code send failed (network error)');
+      throw new TwilioUnavailableError('Twilio could not be reached', { cause: error });
+    }
 
     if (!response.ok) {
-      // Read the body to drain the connection but DO NOT log it —
-      // Twilio error bodies can include the recipient address and
-      // detailed account information. Log only the status code.
-      try {
-        await response.text();
-      } catch {
-        // ignore
+      // Only Twilio's numeric code is read from the body. Its message can
+      // quote the recipient, so it is never logged or returned.
+      const twilioCode = await readTwilioCode(response);
+      const { status } = response;
+      // A 404 here means the Verify Service doesn't exist: no one can be sent a code.
+      if (status === 404 || isOutage(status, twilioCode, MAX_SEND_ATTEMPTS)) {
+        log.error({ channel: input.channel, status, twilioCode }, 'verification code send failed (twilio unavailable)');
+        throw new TwilioUnavailableError(`Twilio refused the send with HTTP ${status}`, { status, twilioCode });
       }
-      log.warn(
-        { channel: input.channel, status: response.status },
-        'verification code send rejected',
-      );
+      log.warn({ channel: input.channel, status, twilioCode }, 'verification code send rejected');
       return false;
     }
 
@@ -140,26 +174,20 @@ export function createTwilioVerifyClient(
         body: params,
       });
     } catch (error) {
-      // Network errors should not crash the request handler — return
-      // false and let the caller decide whether to retry.
-      log.error(
-        { error: error instanceof Error ? error.message : String(error) },
-        'verification check failed (network error)',
-      );
-      return false;
+      log.error({}, 'verification check failed (network error)');
+      throw new TwilioUnavailableError('Twilio could not be reached', { cause: error });
     }
 
     if (!response.ok) {
-      // Drain the body without logging it.
-      try {
-        await response.text();
-      } catch {
-        // ignore
+      const twilioCode = await readTwilioCode(response);
+      const { status } = response;
+      // A 404 here is the normal answer for an expired or already-used
+      // challenge, so unlike a send it isn't treated as an outage.
+      if (isOutage(status, twilioCode, MAX_CHECK_ATTEMPTS)) {
+        log.error({ status, twilioCode }, 'verification check failed (twilio unavailable)');
+        throw new TwilioUnavailableError(`Twilio refused the check with HTTP ${status}`, { status, twilioCode });
       }
-      log.warn(
-        { status: response.status },
-        'verification check rejected by twilio',
-      );
+      log.warn({ status, twilioCode }, 'verification check rejected by twilio');
       return false;
     }
 

@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@release-it/keep-a-changelog':
+        specifier: ^8.0.1
+        version: 8.0.1(release-it@21.1.2(@types/node@26.6.6))
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6
@@ -351,6 +354,12 @@ packages:
   '@phun-ky/typeof@2.0.3':
     resolution: {integrity: sha512-oeQJs1aa8Ghke8JIK9yuq/+KjMiaYeDZ38jx7MhkXncXlUKjqQ3wEm2X3qCKyjo+ZZofZj+WsEEiqkTtRuE2xQ==}
     engines: {node: ^20.9.0 || >=22.0.0, npm: '>=10.8.2'}
+
+  '@release-it/keep-a-changelog@8.0.1':
+    resolution: {integrity: sha512-02xpmC23EGYowwj30yOdwBdbN5sE+sF2ULOa0FFfMKhRx7JSwkAJ+gEKeJIiIbM0/m9y6zFndkDPs44+YiUTag==}
+    engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
+    peerDependencies:
+      release-it: ^18.0.0 || ^19.0.0 || ^20.0.0 || ^21.0.0
 
   '@rolldown/binding-android-arm-eabi@1.2.16':
     resolution: {integrity: sha512-ia3DwAs0OsMGS7+IConptSiyk9pEXkOx/AbJ2n/lAGxH3QkWQus1t8d7gnAT38FCU2sQu8lUbeR6AiZFv4JxaA==}
@@ -714,6 +723,10 @@ packages:
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
+
+  detect-newline@4.0.1:
+    resolution: {integrity: sha512-qE3Veg1YXzGHQhlA6jzebZN2qVf6NX+A7m7qlhCGG30dJixrAQhYOsJjsnBjJkCSmuOPpCk30145fr8FV0bzog==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   dotenv@17.4.2:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
@@ -1118,6 +1131,11 @@ packages:
   safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
 
+  semver@7.8.6:
+    resolution: {integrity: sha512-9lpSSU4Mly3mrtruwLs1eLK6+gzbzqeBFwRNjIjE+9LuDpWdYctrQlQ3ej1Ilgi7gknpsTRnPoLP8DpCHqHIJw==}
+    engines: {node: '>=10'}
+    hasBin: true
+
   signal-exit@4.1.0:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
@@ -1148,6 +1166,9 @@ packages:
   stdin-discarder@0.3.2:
     resolution: {integrity: sha512-eCPu1qRxPVkl5605OTWF8Wz40b4Mf45NY5LQmVPQ599knfs5QhASUm9GbJ5BDMDOXgrnh0wyEdvzmL//YMlw0A==}
     engines: {node: '>=18'}
+
+  string-template@1.0.0:
+    resolution: {integrity: sha512-SLqR3GBUXuoPP5MmYtD7ompvXiG87QjT6lzOszyXjTM86Uu7At7vNnt2xgyTLq5o9T4IxTYFyGxcULqpsmsfdg==}
 
   string-width@8.3.0:
     resolution: {integrity: sha512-ZbmZM0JCihQN91dWnxoipT2KOEyHqEyfRXUyjuRhW8b/xnqPDoq4gWEVApTVa9db2wN8mmoikgFBbjh71+cGeQ==}
@@ -1563,6 +1584,13 @@ snapshots:
 
   '@phun-ky/typeof@2.0.3': {}
 
+  '@release-it/keep-a-changelog@8.0.1(release-it@21.1.2(@types/node@26.6.6))':
+    dependencies:
+      detect-newline: 4.0.1
+      release-it: 21.1.2(@types/node@26.6.6)
+      semver: 7.8.6
+      string-template: 1.0.0
+
   '@rolldown/binding-android-arm-eabi@1.2.16':
     optional: true
 
@@ -1788,6 +1816,8 @@ snapshots:
   destr@2.0.5: {}
 
   detect-libc@2.1.2: {}
+
+  detect-newline@4.0.1: {}
 
   dotenv@17.4.2: {}
 
@@ -2202,6 +2232,8 @@ snapshots:
 
   safer-buffer@2.1.2: {}
 
+  semver@7.8.6: {}
+
   signal-exit@4.1.0: {}
 
   smart-buffer@4.2.0: {}
@@ -2227,6 +2259,8 @@ snapshots:
   std-env@4.3.0: {}
 
   stdin-discarder@0.3.2: {}
+
+  string-template@1.0.0: {}
 
   string-width@8.3.0:
     dependencies:

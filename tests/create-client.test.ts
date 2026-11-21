@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   InvalidInputError,
+  TwilioUnavailableError,
   createTwilioVerifyClient,
   type TwilioVerifyConfig,
 } from '../src/index.js';
@@ -100,8 +101,8 @@ describe('sendVerificationCode', () => {
     expect(headers.Authorization).toBe(expected);
   });
 
-  it('returns false on a non-2xx response without throwing', async () => {
-    const { fetch } = mockFetch([{ ok: false, status: 429, text: 'too many requests' }]);
+  it('returns false when Twilio refuses this recipient, without throwing', async () => {
+    const { fetch } = mockFetch([{ status: 400, json: { code: 21211 } }]);
     const client = createTwilioVerifyClient({ ...VALID_CONFIG, fetch });
 
     const result = await client.sendVerificationCode({
@@ -184,17 +185,17 @@ describe('verifyVerificationCode', () => {
     expect(result).toBe(false);
   });
 
-  it('returns false on a network error without crashing', async () => {
+  it('throws TwilioUnavailableError on a network error, so a correct code is not called wrong', async () => {
     const fetch = vi.fn(async () => {
       throw new TypeError('fetch failed');
     }) as unknown as typeof globalThis.fetch;
     const client = createTwilioVerifyClient({ ...VALID_CONFIG, fetch });
 
-    const result = await client.verifyVerificationCode({
-      to: '+15558675309',
-      code: '123456',
-    });
-    expect(result).toBe(false);
+    const err = await client
+      .verifyVerificationCode({ to: '+15558675309', code: '123456' })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TwilioUnavailableError);
+    expect((err as TwilioUnavailableError).status).toBeUndefined();
   });
 
   it('returns false on invalid JSON in the response', async () => {
@@ -303,6 +304,94 @@ describe('logging', () => {
     ]);
 
     expect(allLogged).not.toContain('sensitive twilio error');
-    expect(allLogged).not.toContain('60200');
+    expect(allLogged).not.toContain('+15558675309');
+  });
+
+  it("logs Twilio's numeric error code, which is safe and says why the send failed", async () => {
+    const log = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const { fetch } = mockFetch([
+      { status: 400, json: { code: 21211, message: "The 'To' number +15558675309 is not valid." } },
+    ]);
+    const client = createTwilioVerifyClient({ ...VALID_CONFIG, fetch, logger: log });
+
+    await client.sendVerificationCode({ channel: 'sms', to: '+15558675309' });
+
+    expect(log.warn).toHaveBeenCalledWith(
+      { channel: 'sms', status: 400, twilioCode: 21211 },
+      'verification code send rejected',
+    );
+    expect(JSON.stringify(log.warn.mock.calls)).not.toContain('+15558675309');
+  });
+});
+
+describe('telling an outage from a refusal of one recipient', () => {
+  const send = async (response: { status: number; json?: unknown; text?: string }) => {
+    const { fetch } = mockFetch([response]);
+    const client = createTwilioVerifyClient({ ...VALID_CONFIG, fetch });
+    return client.sendVerificationCode({ channel: 'sms', to: '+15558675309' }).catch((e: unknown) => e);
+  };
+  const check = async (response: { status: number; json?: unknown; text?: string }) => {
+    const { fetch } = mockFetch([response]);
+    const client = createTwilioVerifyClient({ ...VALID_CONFIG, fetch });
+    return client.verifyVerificationCode({ to: '+15558675309', code: '123456' }).catch((e: unknown) => e);
+  };
+
+  it.each([
+    ['bad credentials', { status: 401, json: { code: 20003 } }],
+    ['a missing Verify Service', { status: 404, json: { code: 20404 } }],
+    ['an account-wide rate limit', { status: 429, json: { code: 20429 } }],
+    ['a 429 with no body', { status: 429, text: '' }],
+    ['a Twilio 500', { status: 500, text: 'oops' }],
+    ['a Twilio 503', { status: 503, text: '' }],
+  ])('a send throws TwilioUnavailableError for %s', async (_name, response) => {
+    const err = await send(response);
+    expect(err).toBeInstanceOf(TwilioUnavailableError);
+    expect(err).toMatchObject({ code: 'TWILIO_UNAVAILABLE', status: response.status });
+  });
+
+  it.each([
+    ['an invalid number', { status: 400, json: { code: 21211 } }],
+    ['a landline', { status: 400, json: { code: 60205 } }],
+    ['a blocked destination country', { status: 403, json: { code: 60605 } }],
+    ['too many sends to this recipient', { status: 429, json: { code: 60203 } }],
+  ])('a send returns false for %s', async (_name, response) => {
+    expect(await send(response)).toBe(false);
+  });
+
+  it('a send throws TwilioUnavailableError on a network error, keeping the cause', async () => {
+    const cause = new TypeError('fetch failed');
+    const fetch = vi.fn(async () => {
+      throw cause;
+    }) as unknown as typeof globalThis.fetch;
+    const client = createTwilioVerifyClient({ ...VALID_CONFIG, fetch });
+    const err = await client.sendVerificationCode({ channel: 'sms', to: '+15558675309' }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TwilioUnavailableError);
+    expect((err as Error).cause).toBe(cause);
+  });
+
+  it('carries the Twilio code on the error', async () => {
+    expect(await send({ status: 401, json: { code: 20003 } })).toMatchObject({ twilioCode: 20003 });
+  });
+
+  it("never puts Twilio's message on the error", async () => {
+    const err = await send({ status: 500, json: { code: 20500, message: 'failed for +15558675309' } });
+    expect(JSON.stringify(err)).not.toContain('+15558675309');
+    expect(String((err as Error).message)).not.toContain('+15558675309');
+  });
+
+  it.each([
+    ['bad credentials', { status: 401, json: { code: 20003 } }],
+    ['an account-wide rate limit', { status: 429, json: { code: 20429 } }],
+    ['a Twilio 500', { status: 500, text: '' }],
+  ])('a check throws TwilioUnavailableError for %s', async (_name, response) => {
+    expect(await check(response)).toBeInstanceOf(TwilioUnavailableError);
+  });
+
+  it.each([
+    ['an expired or used challenge', { status: 404, json: { code: 20404 } }],
+    ['too many checks for this challenge', { status: 429, json: { code: 60202 } }],
+    ['a bad request', { status: 400, json: { code: 60200 } }],
+  ])('a check returns false for %s', async (_name, response) => {
+    expect(await check(response)).toBe(false);
   });
 });
